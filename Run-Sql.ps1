@@ -16,8 +16,12 @@ Directory as parameter .\run-sql.ps1 -SqlDir "T:\testSql\"
 All parameters .\run-sql.ps1 -SqlDir "T:\testSql\" -SQLServer "BigSqlServer" -RenameFaultyScript 0 -OutputPath "t:\logoutputforScripts"
 
 .EXAMPLE 
-exempel: with alias run-sql -SqlDir[sql,sd,dir] "T:\testSql\" -SQLServer[server,s] "BigSqlServer" -RenameFaultyScript[ren] 1 -OutputPath [o] "t:\logoutputforScripts"
+exempel with alias run-sql -SqlDir[sql,sd,dir] "T:\testSql\" -SQLServer[server,s] "BigSqlServer" -RenameFaultyScript[ren] 1 -OutputPath [o] "t:\logoutputforScripts"
 
+.EXAMPLE 
+Example with do not rename bad scripts copy them into a failed folder instead. Do this by setting the renameparameter to false (0) and pipe outcome to copy-item
+
+"t:\testsql\"|.\run-sql.ps1 -ren 0|copy-Item -Destination "t:\failedscript\" 
 .PARAMETER SqlDir 
 The full path to the directory where all the sql script files are. Eg T:\goodstuff\sqltorun . Has alias: dir, sql, ds. Can also be piped into the script.
 
@@ -32,6 +36,8 @@ Any script that generates a SQL error gets its extension changed from .sql to .f
 .PARAMETER OutputPath 
 This is where the output from the sql scripts get saved. If it does not exist it creates an output folder in the root of the SQLDir
 
+.PARAMETER OutPut 
+$FaultyFiles is an array of path to where the bad sql scripts are. 
 .LINK 
 latest version 
 http://github.com/patriklindstrom/Powershell-pasen 
@@ -121,7 +127,7 @@ Add-PSSnapin -Name sqlserverprovidersnapin100 -ErrorAction SilentlyCOntinue -Err
 if ($errSnap1){ 
     if($errSnap1[0].Exception.Message.Contains( 'because it is already added')){ 
         Write-Verbose "sqlserverprovidersnapin100 already added!" 
-    $Error.clear() 
+    $error.clear() 
     }else{ 
         Write-Verbose "an error occurred:$($err[0])." 
         exit 
@@ -133,7 +139,7 @@ if ($errSnap1){
 if ($errSnap2){ 
     if($errSnap2[0].Exception.Message.Contains( 'because it is already added')){ 
         Write-Verbose "sqlservercmdletsnapin100 already added!" 
-    $Error.clear() 
+    $error.clear() 
     }else{ 
         Write-Verbose "an error occurred:$($err[0])." 
         exit 
@@ -143,7 +149,7 @@ if ($errSnap2){
 }
 
 # $sqlScriptTree = Get-ChildItem -path $SqlDir -recurse  -Filter *.sql | sort-object 
-[array]$FaultyFiles 
+$FaultyFiles = @() 
 $start = Get-Date 
 $i=0 
 write-host *************** 
@@ -154,12 +160,12 @@ foreach ($f in Get-ChildItem -path $SqlDir -recurse  -Filter *.sql | sort-object
             write-host $f.fullname,$dt          
             invoke-sqlcmd -ServerInstance $SQLServer -OutputSqlErrors $TRUE -ErrorAction SilentlyContinue  -InputFile $f.fullname | format-table | out-file -filePath $out
 
-            if ($Error){ 
+            if ($error){ 
                 
                write-host   "SQL error in $($f.fullname)  " -foregroundcolor red 
                if ($RenameFaultyScript)
 
-               {  "Changing extension for {0} to {1} ) " ,$f.fullname,[System.IO.Path]::ChangeExtension($f.name, ".failed")
+               { write-host "Changing extension for $($f.fullname) to $([System.IO.Path]::ChangeExtension($f.name, ".failed"))  "
 
                    $FaultyFiles += join-path -path $($f.fullname|split-path) -childpath $([System.IO.Path]::ChangeExtension($f.name, ".failed"))
 
@@ -168,10 +174,10 @@ foreach ($f in Get-ChildItem -path $SqlDir -recurse  -Filter *.sql | sort-object
                 } 
                 else 
                 { 
-                    $FaultyFiles += $f.fullname            
+                    $FaultyFiles +=$f            
                 } 
                
-             $Error.clear() 
+             $error.clear() 
             }    
         ++$i 
  }
@@ -182,5 +188,4 @@ $ddiff = $now - $start
 write-host *************** 
 write-host "Done running all $i scripts in $SqlDir on Sqlserver: $SQLServerPath at $dt it took $ddiff"  -ForegroundColor green
 
-$num=$FaultyFiles.Count 
 Write-Output  $FaultyFiles
