@@ -85,7 +85,7 @@ param
         ValueFromPipelineByPropertyName=$true) 
     ] 
     [Alias('ren')] 
-    [boolean]$RenameFaultyScript=$TRUE , 
+    [boolean]$RenameFaultyScript=$FALSE , 
     [Parameter( 
         Position=3, 
         Mandatory=$false, 
@@ -97,90 +97,146 @@ param
 )
 
 
-    # Test for existence of SQL script directory path  
-   if (!$SqlDir)  
-   {  
-        $(Throw 'Missing argument: SqlDir')    
-   }  
-  if (-not $SqlDir.EndsWith("\"))  
-    { 
-        $SqlDir += "\" 
-    }     
-    if (!(test-path $SqlDir))  
-    { 
-         $(Throw "The SqlDir: $SqlDir does not exist")    
-    }
+# Code from Windows Powershell Cookbook by Lee Holmes
+function GetFileEncoding($Path)
+{
 
-    #Test for the OutputPath 
-       if (!($OutputPath))  
-    { 
-       $OutputPath =  join-path -path $SqlDir -childpath "Output" 
-       New-Item $OutputPath -type directory -force 
-    }       
-   if (!(test-path $OutputPath))  
-    { 
-    $OutputPath =  join-path -path $SqlDir -childpath "Output" 
-        Write-Verbose SQL script output directory  does not exists. Creates one here  $OutputPath                 
-        New-Item $OutputPath -type directory -force      
-    } 
+  ## The hashtable used to store our mapping of encoding bytes to their
+  ## name. For example, "255-254 = Unicode"
+  $encodings = @{}
+
+  ## Find all of the encodings understood by the .NET Framework. For each,
+  ## determine the bytes at the start of the file (the preamble) that the .NET
+  ## Framework uses to identify that encoding.
+  $encodingMembers = [System.Text.Encoding] |
+      Get-Member -Static -MemberType Property
+
+  $encodingMembers | Foreach-Object {
+      $encodingBytes = [System.Text.Encoding]::($_.Name).GetPreamble() -join '-'
+      $encodings[$encodingBytes] = $_.Name
+  }
+
+  ## Find out the lengths of all of the preambles.
+  $encodingLengths = $encodings.Keys | Where-Object { $_ } |
+      Foreach-Object { ($_ -split "-").Count }
+
+  ## Assume the encoding is UTF7 by default
+  $result = "ASCII"
+
+  ## Go through each of the possible preamble lengths, read that many
+  ## bytes from the file, and then see if it matches one of the encodings
+  ## we know about.
+  foreach($encodingLength in $encodingLengths | Sort -Descending)
+  {
+      $bytes = (Get-Content -encoding byte -readcount $encodingLength $path)[0]
+      $encoding = $encodings[$bytes -join '-']
+
+      ## If we found an encoding that had the same preamble bytes,
+      ## save that output and break.
+      if($encoding)
+      {
+          $result = $encoding
+          break
+      }
+  }
+
+  ## Finally, output the encoding.
+  [System.Text.Encoding]::$result
+}
+
+  # Test for existence of SQL script directory path  
+if (!$SqlDir)  
+{  
+  $(Throw 'Missing argument: SqlDir')    
+}  
+if (-not $SqlDir.EndsWith("\"))  
+{ 
+  $SqlDir += "\" 
+}     
+if (!(test-path $SqlDir))  
+{ 
+  $(Throw "The SqlDir: $SqlDir does not exist")    
+}
+
+#Test for the OutputPath 
+if (!($OutputPath))  
+{ 
+  $OutputPath =  join-path -path $SqlDir -childpath "Output" 
+  New-Item $OutputPath -type directory -force 
+}       
+if (!(test-path $OutputPath))  
+{ 
+  $OutputPath =  join-path -path $SqlDir -childpath "Output" 
+  Write-Verbose SQL script output directory  does not exists. Creates one here  $OutputPath                 
+  New-Item $OutputPath -type directory -force      
+} 
 Add-PSSnapin -Name sqlserverprovidersnapin100 -ErrorAction SilentlyCOntinue -ErrorVariable errSnap1 
 if ($errSnap1){ 
-    if($errSnap1[0].Exception.Message.Contains( 'because it is already added')){ 
-        Write-Verbose "sqlserverprovidersnapin100 already added!" 
+  if($errSnap1[0].Exception.Message.Contains( 'because it is already added')){ 
+    Write-Verbose "sqlserverprovidersnapin100 already added!" 
     $error.clear() 
-    }else{ 
-        Write-Verbose "an error occurred:$($err[0])." 
-        exit 
-    } 
+  }else{ 
+    Write-Verbose "an error occurred:$($err[0])." 
+    exit 
+  } 
 }else{ 
-    Write-Verbose "sqlserverprovidersnapin100 Snapin installed" 
+  Write-Verbose "sqlserverprovidersnapin100 Snapin installed" 
 }    
-  Add-PSSnapin -Name sqlservercmdletsnapin100 -ErrorAction SilentlyCOntinue -ErrorVariable errSnap2 
+Add-PSSnapin -Name sqlservercmdletsnapin100 -ErrorAction SilentlyCOntinue -ErrorVariable errSnap2 
 if ($errSnap2){ 
-    if($errSnap2[0].Exception.Message.Contains( 'because it is already added')){ 
-        Write-Verbose "sqlservercmdletsnapin100 already added!" 
+  if($errSnap2[0].Exception.Message.Contains( 'because it is already added')){ 
+    Write-Verbose "sqlservercmdletsnapin100 already added!" 
     $error.clear() 
-    }else{ 
-        Write-Verbose "an error occurred:$($err[0])." 
-        exit 
-    } 
+  }else{ 
+    Write-Verbose "an error occurred:$($err[0])." 
+    exit 
+  } 
 }else{ 
-    Write-Verbose "sqlservercmdletsnapin100 Snapin installed" 
+  Write-Verbose "sqlservercmdletsnapin100 Snapin installed" 
 }
 
 # $sqlScriptTree = Get-ChildItem -path $SqlDir -recurse  -Filter *.sql | sort-object 
 $FaultyFiles = @() 
+$FaultyEncodingFiles = @()
 $start = Get-Date 
 $i=0 
 write-host *************** 
 foreach ($f in Get-ChildItem -path $SqlDir -recurse  -Filter *.sql | sort-object ) 
 { 
-            $out = join-path -path $OutputPath -childpath  $([System.IO.Path]::ChangeExtension($f.name, ".txt")) ; 
-            $dt = Get-Date -Format s   
-            write-host $f.fullname,$dt          
-            invoke-sqlcmd -ServerInstance $SQLServer -OutputSqlErrors $TRUE -ErrorAction SilentlyContinue  -InputFile $f.fullname | format-table | out-file -filePath $out
+  $out = join-path -path $OutputPath -childpath  $([System.IO.Path]::ChangeExtension($f.name, ".txt")) ; 
+  $dt = Get-Date -Format s   
+  write-host $f.fullname,$dt
+  $enc=GetFileEncoding($f.fullname)
+  if($enc.BodyName.Equals("utf-16")) #Default encoding for TCM project
+  {
+    invoke-sqlcmd -ServerInstance $SQLServer -OutputSqlErrors $TRUE -ErrorAction SilentlyContinue  -InputFile $f.fullname | format-table | out-file -filePath $out
+  }
+  else
+  {
+    $FaultyEncodingFiles += $f  
+    $nf = [System.IO.Path]::GetTempFileName()
+    $encoding = [System.Text.Encoding]::GetEncoding(1252)
+    $text = [System.IO.File]::ReadAllText($f.fullname, $encoding)
+    [System.IO.File]::WriteAllText($nf, $text, [System.Text.Encoding]::GetEncoding("utf-16"))
+    invoke-sqlcmd -ServerInstance $SQLServer -OutputSqlErrors $TRUE -ErrorAction SilentlyContinue -InputFile $nf | format-table | out-file -filePath $out
+  }
 
-            if ($error){ 
-                
-               write-host   "SQL error in $($f.fullname)  " -foregroundcolor red 
-               if ($RenameFaultyScript)
-
-               { write-host "Changing extension for $($f.fullname) to $([System.IO.Path]::ChangeExtension($f.name, ".failed"))  "
-
-                   $FaultyFiles += join-path -path $($f.fullname|split-path) -childpath $([System.IO.Path]::ChangeExtension($f.name, ".failed"))
-
-                   Rename-Item -Path $f.fullname -NewName $([System.IO.Path]::ChangeExtension($f.name, ".failed")) 
-                     
-                } 
-                else 
-                { 
-                    $FaultyFiles +=$f            
-                } 
-               
-             $error.clear() 
-            }    
-        ++$i 
- }
+  if ($error){ 
+    write-host   "SQL error in $($f.fullname)  " -foregroundcolor red 
+    if ($RenameFaultyScript)
+    {
+      write-host "Changing extension for $($f.fullname) to $([System.IO.Path]::ChangeExtension($f.name, ".failed"))  "
+      $FaultyFiles += join-path -path $($f.fullname|split-path) -childpath $([System.IO.Path]::ChangeExtension($f.name, ".failed"))
+      Rename-Item -Path $f.fullname -NewName $([System.IO.Path]::ChangeExtension($f.name, ".failed")) 
+    } 
+    else 
+    { 
+      $FaultyFiles +=$f            
+    } 
+    $error.clear() 
+  }    
+  ++$i 
+}
 
 $dt = Get-Date -Format s 
 $now= Get-Date 
@@ -188,4 +244,8 @@ $ddiff = $now - $start
 write-host *************** 
 write-host "Done running all $i scripts in $SqlDir on Sqlserver: $SQLServerPath at $dt it took $ddiff"  -ForegroundColor green
 
-Write-Output  $FaultyFiles
+write-host "Failed files"  -ForegroundColor red
+Write-Output $FaultyFiles
+write-host "Reencoded files"  -ForegroundColor red
+Write-Output $FaultyEncodingFiles
+
