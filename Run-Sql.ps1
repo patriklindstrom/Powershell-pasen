@@ -97,6 +97,53 @@ param
 )
 
 
+  # Code from Windows Powershell Cookbook by Lee Holmes
+  function GetFileEncoding($Path)
+  {
+
+    ## The hashtable used to store our mapping of encoding bytes to their
+    ## name. For example, "255-254 = Unicode"
+    $encodings = @{}
+
+    ## Find all of the encodings understood by the .NET Framework. For each,
+    ## determine the bytes at the start of the file (the preamble) that the .NET
+    ## Framework uses to identify that encoding.
+    $encodingMembers = [System.Text.Encoding] |
+        Get-Member -Static -MemberType Property
+
+    $encodingMembers | Foreach-Object {
+        $encodingBytes = [System.Text.Encoding]::($_.Name).GetPreamble() -join '-'
+        $encodings[$encodingBytes] = $_.Name
+    }
+
+    ## Find out the lengths of all of the preambles.
+    $encodingLengths = $encodings.Keys | Where-Object { $_ } |
+        Foreach-Object { ($_ -split "-").Count }
+
+    ## Assume the encoding is UTF7 by default
+    $result = "UTF7"
+
+    ## Go through each of the possible preamble lengths, read that many
+    ## bytes from the file, and then see if it matches one of the encodings
+    ## we know about.
+    foreach($encodingLength in $encodingLengths | Sort -Descending)
+    {
+        $bytes = (Get-Content -encoding byte -readcount $encodingLength $path)[0]
+        $encoding = $encodings[$bytes -join '-']
+
+        ## If we found an encoding that had the same preamble bytes,
+        ## save that output and break.
+        if($encoding)
+        {
+            $result = $encoding
+            break
+        }
+    }
+
+    ## Finally, output the encoding.
+    [System.Text.Encoding]::$result
+  }
+
     # Test for existence of SQL script directory path  
    if (!$SqlDir)  
    {  
@@ -158,7 +205,21 @@ foreach ($f in Get-ChildItem -path $SqlDir -recurse  -Filter *.sql | sort-object
             $out = join-path -path $OutputPath -childpath  $([System.IO.Path]::ChangeExtension($f.name, ".txt")) ; 
             $dt = Get-Date -Format s   
             write-host $f.fullname,$dt          
-            invoke-sqlcmd -ServerInstance $SQLServer -OutputSqlErrors $TRUE -ErrorAction SilentlyContinue  -InputFile $f.fullname | format-table | out-file -filePath $out
+     $enc=GetFileEncoding($f.fullname)
+     if($enc.BodyName.Equals("utf-16")) #Default encoding for TCM project
+     {
+       invoke-sqlcmd -ServerInstance $SQLServer -OutputSqlErrors $TRUE -ErrorAction SilentlyContinue  -InputFile $f.fullname -Verbose | format-table | out-file -filePath $out
+     }
+     else
+     {
+       $nf = Rename-Item -Path $f.fullname -NewName $([System.IO.Path]::ChangeExtension($f.name, ".notutf16")) -Passthru 
+
+       $encoding = [System.Text.Encoding]::GetEncoding($enc.BodyName)
+       $text = [System.IO.File]::ReadAllText($nf.fullname, $encoding)
+       [System.IO.File]::WriteAllText(f.fullname, $text)
+       invoke-sqlcmd -ServerInstance $SQLServer -OutputSqlErrors $TRUE -ErrorAction SilentlyContinue -InputFile f.fullname -Verbose | 
+              format-table | out-file -filePath $out
+     }
 
             if ($error){ 
                 
