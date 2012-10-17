@@ -121,7 +121,7 @@ function GetFileEncoding($Path)
       Foreach-Object { ($_ -split "-").Count }
 
   ## Assume the encoding is UTF7 by default
-  $result = "UTF7"
+  $result = "ASCII"
 
   ## Go through each of the possible preamble lengths, read that many
   ## bytes from the file, and then see if it matches one of the encodings
@@ -205,7 +205,7 @@ foreach ($f in Get-ChildItem -path $SqlDir -recurse  -Filter *.sql | sort-object
 { 
   $out = join-path -path $OutputPath -childpath  $([System.IO.Path]::ChangeExtension($f.name, ".txt")) ; 
   $dt = Get-Date -Format s   
-  write-host $f.fullname,$dt          
+  write-host $f.fullname,$dt
   $enc=GetFileEncoding($f.fullname)
   if($enc.BodyName.Equals("utf-16")) #Default encoding for TCM project
   {
@@ -215,7 +215,7 @@ foreach ($f in Get-ChildItem -path $SqlDir -recurse  -Filter *.sql | sort-object
   {
     $FaultyEncodingFiles += $f  
     $nf = [System.IO.Path]::GetTempFileName()
-    $encoding = [System.Text.Encoding]::GetEncoding($enc.BodyName)
+    $encoding = [System.Text.Encoding]::GetEncoding(1252)
     $text = [System.IO.File]::ReadAllText($f.fullname, $encoding)
     [System.IO.File]::WriteAllText($nf, $text, [System.Text.Encoding]::GetEncoding("utf-16"))
     invoke-sqlcmd -ServerInstance $SQLServer -OutputSqlErrors $TRUE -ErrorAction SilentlyContinue -InputFile $nf | format-table | out-file -filePath $out
