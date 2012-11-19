@@ -128,7 +128,12 @@ function GetFileEncoding($Path)
   ## we know about.
   foreach($encodingLength in $encodingLengths | Sort -Descending)
   {
-      $bytes = (Get-Content -encoding byte -readcount $encodingLength $path)[0]
+      $st = Get-Date 
+      $fs = new-object 'system.io.filestream' $path, 'open', 'read'
+      $bs = new-object 'System.IO.BinaryReader' $fs
+      $bytes = $bs.ReadBytes($encodingLength)
+      $nw= Get-Date 
+      $ddif = $nw - $st 
       $encoding = $encodings[$bytes -join '-']
 
       ## If we found an encoding that had the same preamble bytes,
@@ -138,6 +143,9 @@ function GetFileEncoding($Path)
           $result = $encoding
           break
       }
+      $bs.Close()
+      $fs.Close()
+      $fs.Dispose()
   }
 
   ## Finally, output the encoding.
