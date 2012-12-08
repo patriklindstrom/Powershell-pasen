@@ -68,7 +68,7 @@ param
     [Alias('sql')] 
     [Alias('dir')] 
     [Alias('ds')] 
-    [string]$SqlDir , 
+    [string]$SqlDir='D:\Users\Patrik\Documents\GitHub\Powershell-pasen\pstestfiles' , 
     [Parameter( 
         Position=1, 
         Mandatory=$false, 
@@ -77,7 +77,7 @@ param
     ] 
     [Alias('server')] 
     [Alias('s')] 
-    [string]$SQLServer="localhost" , 
+    [string]$SQLServer='Herkules\dev' , 
         [Parameter( 
         Position=2, 
         Mandatory=$false, 
@@ -209,13 +209,13 @@ $FaultyEncodingFiles = @()
 $start = Get-Date 
 $i=0 
 write-host *************** 
-foreach ($f in Get-ChildItem -path $SqlDir -recurse  -Filter *.sql | sort-object ) 
+foreach ($f in Get-ChildItem -path $SqlDir -recurse  -Filter *.sql | sort-object -Property fullname  ) 
 { 
   $out = join-path -path $OutputPath -childpath  $([System.IO.Path]::ChangeExtension($f.name, ".txt")) ; 
   $dt = Get-Date -Format s   
   write-host $f.fullname,$dt
   $enc=GetFileEncoding($f.fullname)
-  if($enc.BodyName.Equals("utf-16")) #Default encoding for TCM project
+  if($enc.BodyName.Equals("utf-16")) #Default encoding for Windows which invoke-sqlcmd can handle
   {
     invoke-sqlcmd -ServerInstance $SQLServer -OutputSqlErrors $TRUE -ErrorAction SilentlyContinue  -InputFile $f.fullname | format-table | out-file -filePath $out
   }
@@ -254,6 +254,5 @@ write-host "Done running all $i scripts in $SqlDir on Sqlserver: $SQLServerPath 
 
 write-host "Failed files"  -ForegroundColor red
 Write-Output $FaultyFiles
-write-host "Reencoded files"  -ForegroundColor red
-Write-Output $FaultyEncodingFiles
+
 
