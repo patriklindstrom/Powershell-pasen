@@ -95,7 +95,13 @@ param
     [Alias('o')] 
     [string]$OutputPath 
 )
+# We want files in a directory called Table to be run before a directory called View
+# This function returns higher integer value to files in directory tree depending on names of parent 
+# directories. The template used is how Redgates scripted database directory structure looks.
+function NaturalSQLScriptOrder ($SqlScript) {
 
+int $sortorder
+}
 
 # Code from Windows Powershell Cookbook by Lee Holmes
 function GetFileEncoding($Path)
