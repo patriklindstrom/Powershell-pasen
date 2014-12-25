@@ -34,12 +34,17 @@ function hashIt($filePath ,[System.Security.Cryptography.HashAlgorithm] $hashAlg
 
 $md5 = new-object -TypeName System.Security.Cryptography.MD5CryptoServiceProvider
 #$sha1 = new-object -TypeName System.Security.Cryptography.SHA1CryptoServiceProvider
+$RootPathLenght  = $WhatToCheckList.Length
+$RootDirName = Split-Path -path $WhatToCheckList -Leaf
 (Get-ChildItem -Path  $WhatToCheckList -Recurse ) | % {
+                $pathFromRoot = Join-Path -path  '.\' -ChildPath (join-path -path $RootDirName -ChildPath  ($_.FullName.Substring($RootPathLenght)))
                 if (Test-path -Path $_.FullName -PathType Leaf) {
+
                         $hashKey = hashIt $_.FullName -hashAlgo $md5
-                        Write-host "$_ : $hashKey"
+                        Write-host  $pathFromRoot : $hashKey
+
                     } 
-                else {  Write-host "** $_ "}
+                else {  Write-host "** Dir  $pathFromRoot" }
     }
 #$md5Hash = hashIt -filePath $WhatToCheckList -hashAlgo $md5
 #$sha1Hash = hashIt -filePath $WhatToCheckList -hashAlgo $sha1
