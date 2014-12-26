@@ -22,7 +22,14 @@ param
     ] 
     [Alias('l')] 
     [Alias('file')] 
-    $WhatToCheckList = "D:\Users\Patrik\Documents\GitHub\Powershell-pasen\pstestfiles\VersionCheck-Deploy-Test\"    
+    $WhatToCheckList = "D:\Users\Patrik\Documents\GitHub\Powershell-pasen\pstestfiles\VersionCheck-Deploy-Test\" ,
+     [Parameter( 
+        Position=1, 
+        Mandatory=$false, 
+        ValueFromPipeline=$false, 
+        ValueFromPipelineByPropertyName=$true) 
+    ] 
+    $XmlPath = "$env:temp\HashCodeTree.xml"   
 )
 
 function hashIt($filePath ,[System.Security.Cryptography.HashAlgorithm] $hashAlgo)
@@ -32,20 +39,40 @@ function hashIt($filePath ,[System.Security.Cryptography.HashAlgorithm] $hashAlg
     $file.Dispose()
 }
 
+
+ 
+# get an XMLTextWriter to create the XML
+$XmlWriter = New-Object System.XMl.XmlTextWriter($XmlPath,$Null)
+ 
+# choose a pretty formatting:
+$xmlWriter.Formatting = 'Indented'
+$xmlWriter.Indentation = 1
+$XmlWriter.IndentChar = "`t"
+ 
+# write the header
+$xmlWriter.WriteStartDocument()
+ 
+# set XSL statements
+$xmlWriter.WriteProcessingInstruction("xml-stylesheet", "type='text/xsl' href='style.xsl'")
+ 
+# create root element "machines" and add some attributes to it
+$XmlWriter.WriteComment('List of machines')
+$xmlWriter.WriteStartElement('Machines')
+$XmlWriter.WriteAttributeString('current', $true)
+$XmlWriter.WriteAttributeString('manager', 'Tobias')
+ 
+
 $md5 = new-object -TypeName System.Security.Cryptography.MD5CryptoServiceProvider
 #$sha1 = new-object -TypeName System.Security.Cryptography.SHA1CryptoServiceProvider
 $RootPathLenght  = $WhatToCheckList.Length
 $RootDirName = Split-Path -path $WhatToCheckList -Leaf
 (Get-ChildItem -Path  $WhatToCheckList -Recurse ) | % {
                 $pathFromRoot = Join-Path -path  '.\' -ChildPath (join-path -path $RootDirName -ChildPath  ($_.FullName.Substring($RootPathLenght)))
-                if (Test-path -Path $_.FullName -PathType Leaf) {
-
+                if (Test-path -Path $_.FullName -PathType Leaf) {                        
                         $hashKey = hashIt $_.FullName -hashAlgo $md5
                         Write-host  $pathFromRoot : $hashKey
 
                     } 
                 else {  Write-host "** Dir  $pathFromRoot" }
     }
-#$md5Hash = hashIt -filePath $WhatToCheckList -hashAlgo $md5
-#$sha1Hash = hashIt -filePath $WhatToCheckList -hashAlgo $sha1
-#$md5Hash
+
