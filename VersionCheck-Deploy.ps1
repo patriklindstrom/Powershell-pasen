@@ -29,7 +29,7 @@ param
         ValueFromPipeline=$false, 
         ValueFromPipelineByPropertyName=$true) 
     ] 
-    $XmlPath = "$env:temp\HashCodeTree.xml"   
+    $XmlPath = "$env:temp\HashCodeTree2.xml"   
 )
 
 function hashIt($filePath ,[System.Security.Cryptography.HashAlgorithm] $hashAlgo)
@@ -56,23 +56,44 @@ $xmlWriter.WriteStartDocument()
 $xmlWriter.WriteProcessingInstruction("xml-stylesheet", "type='text/xsl' href='style.xsl'")
  
 # create root element "machines" and add some attributes to it
-$XmlWriter.WriteComment('List of machines')
-$xmlWriter.WriteStartElement('Machines')
-$XmlWriter.WriteAttributeString('current', $true)
-$XmlWriter.WriteAttributeString('manager', 'Tobias')
+$XmlWriter.WriteComment('List of directories and their unique hashcode')
+$xmlWriter.WriteStartElement('CheckedRoots')
+$XmlWriter.WriteAttributeString('VersionName', "Testbaseline")
+$XmlWriter.WriteAttributeString('NameOfSystem', "HelloWorld")
+$XmlWriter.WriteAttributeString('DateTime', (Get-Date -Format o))
+$XmlWriter.WriteAttributeString('Source', 'TestBenchServer')
  
 
-$md5 = new-object -TypeName System.Security.Cryptography.MD5CryptoServiceProvider
+$hashA = new-object -TypeName System.Security.Cryptography.MD5CryptoServiceProvider
 #$sha1 = new-object -TypeName System.Security.Cryptography.SHA1CryptoServiceProvider
 $RootPathLenght  = $WhatToCheckList.Length
 $RootDirName = Split-Path -path $WhatToCheckList -Leaf
-(Get-ChildItem -Path  $WhatToCheckList -Recurse ) | % {
+$XmlWriter.WriteComment("Normal search for files in $RootDirName - no filters")
+$XmlWriter.WriteStartElement("ARootDir")
+$XmlWriter.WriteAttributeString("RootDirName","$RootDirName")
+$XmlWriter.WriteAttributeString('HashAlgoritm',$hashA.ToString())
+(Get-ChildItem -Path  $WhatToCheckList  ) | % {
                 $pathFromRoot = Join-Path -path  '.\' -ChildPath (join-path -path $RootDirName -ChildPath  ($_.FullName.Substring($RootPathLenght)))
                 if (Test-path -Path $_.FullName -PathType Leaf) {                        
-                        $hashKey = hashIt $_.FullName -hashAlgo $md5
+                        $hashKey = hashIt $_.FullName -hashAlgo $hashA
                         Write-host  $pathFromRoot : $hashKey
-
+                        $XmlWriter.WriteStartElement("File")
+                            $XmlWriter.WriteAttributeString('CreationTimeUtc',$_.CreationTimeUtc )
+                            $XmlWriter.WriteAttributeString('LastWriteTime',$_.LastWriteTime)
+                            $XmlWriter.WriteAttributeString('Size',$_.Length)  
+                            $XmlWriter.WriteElementString('Name',$_.Name )                     
+                            $XmlWriter.WriteElementString("HashKey",$hashKey)
+                        $XmlWriter.WriteEndElement
                     } 
-                else {  Write-host "** Dir  $pathFromRoot" }
+                else {  Write-host "** Dir  $pathFromRoot" 
+                        $XmlWriter.WriteStartElement("Dir")
+                            $XmlWriter.WriteElementString('Name',$_.Name )                    
+                        $XmlWriter.WriteEndElement
+                }
     }
+     $XmlWriter.WriteEndElement
+$XmlWriter.WriteEndElement
+$XmlWriter.WriteEndDocument()
+$XmlWriter.Flush()
+$XmlWriter.Close()
 
