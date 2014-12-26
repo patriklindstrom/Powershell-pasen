@@ -29,7 +29,7 @@ param
         ValueFromPipeline=$false, 
         ValueFromPipelineByPropertyName=$true) 
     ] 
-    $XmlPath = "$env:temp\HashCodeTree2.xml"   
+    $XmlPath = "D:\Users\Patrik\Documents\GitHub\Powershell-pasen\pstestfiles\temp\HashCodeTree.xml"   
 )
 
 function hashIt($filePath ,[System.Security.Cryptography.HashAlgorithm] $hashAlgo)
@@ -42,6 +42,10 @@ function hashIt($filePath ,[System.Security.Cryptography.HashAlgorithm] $hashAlg
 
  
 # get an XMLTextWriter to create the XML
+$outputPath = Split-path -path $XmlPath -Parent
+if( -not (Test-Path -Path $outputPath)){
+    New-Item -ItemType Directory -Path $outputPath
+}
 $XmlWriter = New-Object System.XMl.XmlTextWriter($XmlPath,$Null)
  
 # choose a pretty formatting:
@@ -72,27 +76,27 @@ $XmlWriter.WriteComment("Normal search for files in $RootDirName - no filters")
 $XmlWriter.WriteStartElement("ARootDir")
 $XmlWriter.WriteAttributeString("RootDirName","$RootDirName")
 $XmlWriter.WriteAttributeString('HashAlgoritm',$hashA.ToString())
-(Get-ChildItem -Path  $WhatToCheckList  ) | % {
+(Get-ChildItem -Path  $WhatToCheckList -Recurse -Exclude "WingtipToys" ) | % {
                 $pathFromRoot = Join-Path -path  '.\' -ChildPath (join-path -path $RootDirName -ChildPath  ($_.FullName.Substring($RootPathLenght)))
                 if (Test-path -Path $_.FullName -PathType Leaf) {                        
                         $hashKey = hashIt $_.FullName -hashAlgo $hashA
                         Write-host  $pathFromRoot : $hashKey
                         $XmlWriter.WriteStartElement("File")
-                            $XmlWriter.WriteAttributeString('CreationTimeUtc',$_.CreationTimeUtc )
-                            $XmlWriter.WriteAttributeString('LastWriteTime',$_.LastWriteTime)
-                            $XmlWriter.WriteAttributeString('Size',$_.Length)  
+                            $XmlWriter.WriteAttributeString('CreationTime',(Get-Date -Format o -date $_.CreationTime ))
+                            $XmlWriter.WriteAttributeString('LastWriteTime',(Get-Date -Format o -date $_.LastWriteTime ))
+                            $XmlWriter.WriteAttributeString('SizeBytes',$_.Length)  
                             $XmlWriter.WriteElementString('Name',$_.Name )                     
                             $XmlWriter.WriteElementString("HashKey",$hashKey)
-                        $XmlWriter.WriteEndElement
+                        $XmlWriter.WriteEndElement()
                     } 
                 else {  Write-host "** Dir  $pathFromRoot" 
                         $XmlWriter.WriteStartElement("Dir")
                             $XmlWriter.WriteElementString('Name',$_.Name )                    
-                        $XmlWriter.WriteEndElement
+                        $XmlWriter.WriteEndElement()
                 }
     }
-     $XmlWriter.WriteEndElement
-$XmlWriter.WriteEndElement
+     $XmlWriter.WriteEndElement()
+$XmlWriter.WriteEndElement()
 $XmlWriter.WriteEndDocument()
 $XmlWriter.Flush()
 $XmlWriter.Close()
