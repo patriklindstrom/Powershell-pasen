@@ -38,7 +38,36 @@ function hashIt($filePath ,[System.Security.Cryptography.HashAlgorithm] $hashAlg
     [System.BitConverter]::ToString($hashAlgo.ComputeHash($file))
     $file.Dispose()
 }
+# Recursive function that iterates throught the directories to find files and calculates checksums for them.
+function CalcHash ($WhatToCheckPath, [System.Security.Cryptography.HashAlgorithm] $hashAlgo,[string]$HashValuesConcat, $XmlWriter)
+{
+    (Get-ChildItem -Path  $WhatToCheckPath   ) | % {
+                $pathFromRoot = Join-Path -path  '.\' -ChildPath (join-path -path $RootDirName -ChildPath  ($_.FullName.Substring($RootPathLenght)))
+                if (Test-path -Path $_.FullName -PathType Leaf) {                        
+                        $hashKey = hashIt $_.FullName -hashAlgo $hashA
+                        Write-host  $pathFromRoot : $hashKey
+                        $XmlWriter.WriteStartElement("File")
+                            $XmlWriter.WriteAttributeString('CreationTime',(Get-Date -Format o -date $_.CreationTime ))
+                            $XmlWriter.WriteAttributeString('LastWriteTime',(Get-Date -Format o -date $_.LastWriteTime ))
+                            $XmlWriter.WriteAttributeString('SizeBytes',$_.Length)  
+                            $XmlWriter.WriteElementString('Name',$_.Name )                     
+                            $XmlWriter.WriteElementString("HashKey",$hashKey)
+                        $XmlWriter.WriteEndElement()
+                    } 
+                else {  
+                        $XmlWriter.WriteStartElement("Dir")
+                        $XmlWriter.WriteElementString('Name',$_.Name )
+                        $XmlWriter.WriteElementString("HashKey",$HashValueConcat)  
+                        $WhatToCheckPath = Join-Path -Path $WhatToCheckPath -ChildPath $_.Name
+                        write-host "** Dir  $WhatToCheckPath" 
+                        #Here is the elegante recursive call to itself
+                        CalcHash -WhatToCheckPath $WhatToCheckPath  -hashAlgo $hashAlgo -HashValuesConcat $HashValueConcat -XmlWriter $XmlWriter                                            
+                        $XmlWriter.WriteEndElement()
+                        $WhatToCheckPath = Split-Path -Path $WhatToCheckPath -Parent
+                }
+    }
 
+}
 
  
 # get an XMLTextWriter to create the XML
@@ -74,28 +103,14 @@ $RootPathLenght  = $WhatToCheckList.Length
 $RootDirName = Split-Path -path $WhatToCheckList -Leaf
 $XmlWriter.WriteComment("Normal search for files in $RootDirName - no filters")
 $XmlWriter.WriteStartElement("ARootDir")
-$XmlWriter.WriteAttributeString("RootDirName","$RootDirName")
 $XmlWriter.WriteAttributeString('HashAlgoritm',$hashA.ToString())
-(Get-ChildItem -Path  $WhatToCheckList -Recurse -Exclude "WingtipToys" ) | % {
-                $pathFromRoot = Join-Path -path  '.\' -ChildPath (join-path -path $RootDirName -ChildPath  ($_.FullName.Substring($RootPathLenght)))
-                if (Test-path -Path $_.FullName -PathType Leaf) {                        
-                        $hashKey = hashIt $_.FullName -hashAlgo $hashA
-                        Write-host  $pathFromRoot : $hashKey
-                        $XmlWriter.WriteStartElement("File")
-                            $XmlWriter.WriteAttributeString('CreationTime',(Get-Date -Format o -date $_.CreationTime ))
-                            $XmlWriter.WriteAttributeString('LastWriteTime',(Get-Date -Format o -date $_.LastWriteTime ))
-                            $XmlWriter.WriteAttributeString('SizeBytes',$_.Length)  
-                            $XmlWriter.WriteElementString('Name',$_.Name )                     
-                            $XmlWriter.WriteElementString("HashKey",$hashKey)
-                        $XmlWriter.WriteEndElement()
-                    } 
-                else {  Write-host "** Dir  $pathFromRoot" 
-                        $XmlWriter.WriteStartElement("Dir")
-                            $XmlWriter.WriteElementString('Name',$_.Name )                    
-                        $XmlWriter.WriteEndElement()
-                }
-    }
-     $XmlWriter.WriteEndElement()
+$XmlWriter.WriteAttributeString('Filter',"NoFilter")
+$XmlWriter.WriteElementString('Name',$_.Name )  
+[string] $HashValueConcat = ""
+# Recursive function that calculates hashvalues for files 
+CalcHash  -WhatToCheckPath $WhatToCheckList  -hashAlgo $hashA -HashValuesConcat $HashValueConcat -XmlWriter $XmlWriter     
+
+$XmlWriter.WriteEndElement()
 $XmlWriter.WriteEndElement()
 $XmlWriter.WriteEndDocument()
 $XmlWriter.Flush()
