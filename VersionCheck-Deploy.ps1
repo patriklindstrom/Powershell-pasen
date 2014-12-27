@@ -32,21 +32,29 @@ param
     $XmlPath = "D:\Users\Patrik\Documents\GitHub\Powershell-pasen\pstestfiles\temp\HashCodeTree.xml"   
 )
 
-function hashIt($filePath ,[System.Security.Cryptography.HashAlgorithm] $hashAlgo)
-{ 
-    $file = [System.IO.File]::Open($filePath,[System.IO.Filemode]::Open, [System.IO.FileAccess]::Read)
-    [System.BitConverter]::ToString($hashAlgo.ComputeHash($file))
-    $file.Dispose()
+function hashFile($filePath,[System.Security.Cryptography.HashAlgorithm] $hashAlgo)
+{  
+        $file = [System.IO.File]::Open($filePath,[System.IO.Filemode]::Open, [System.IO.FileAccess]::Read)
+        [System.BitConverter]::ToString($hashAlgo.ComputeHash($file))
+        $file.Dispose()
 }
-# Recursive function that iterates throught the directories to find files and calculates checksums for them.
+function hashStr($strToHash,[System.Security.Cryptography.HashAlgorithm] $hashAlgo)
+{          
+
+       [System.BitConverter]::ToString( $hashAlgo.ComputeHash([Char[]]$strToHash))
+}
+# Recursive function that traverses throught the directories to find files and calculates checksums for them.
 function CalcHash ($WhatToCheckPath, [System.Security.Cryptography.HashAlgorithm] $hashAlgo,[string]$HashValuesConcat, $XmlWriter)
 {
     (Get-ChildItem -Path  $WhatToCheckPath   ) | % {
                 $pathFromRoot = Join-Path -path  '.\' -ChildPath (join-path -path $RootDirName -ChildPath  ($_.FullName.Substring($RootPathLenght)))
                 if (Test-path -Path $_.FullName -PathType Leaf) {                        
-                        $hashKey = hashIt $_.FullName -hashAlgo $hashA
+                        $hashKey =  hashFile -filePath $_.FullName -hashAlgo $hashA
+                        $HashValuesConcat = $HashValuesConcat + " : " + $hashKey
                         Write-host  $pathFromRoot : $hashKey
+                        write-host "HashConcat:  $HashValuesConcat" 
                         $XmlWriter.WriteStartElement("File")
+                            $XmlWriter.WriteAttributeString('Path',$pathFromRoot )  
                             $XmlWriter.WriteAttributeString('CreationTime',(Get-Date -Format o -date $_.CreationTime ))
                             $XmlWriter.WriteAttributeString('LastWriteTime',(Get-Date -Format o -date $_.LastWriteTime ))
                             $XmlWriter.WriteAttributeString('SizeBytes',$_.Length)  
@@ -56,16 +64,21 @@ function CalcHash ($WhatToCheckPath, [System.Security.Cryptography.HashAlgorithm
                     } 
                 else {  
                         $XmlWriter.WriteStartElement("Dir")
-                        $XmlWriter.WriteElementString('Name',$_.Name )
-                        $XmlWriter.WriteElementString("HashKey",$HashValueConcat)  
+                        $XmlWriter.WriteAttributeString('Path',$_.FullName )  
+                        $XmlWriter.WriteElementString('Name',$_.Name )                       
                         $WhatToCheckPath = Join-Path -Path $WhatToCheckPath -ChildPath $_.Name
                         write-host "** Dir  $WhatToCheckPath" 
                         #Here is the elegante recursive call to itself
-                        CalcHash -WhatToCheckPath $WhatToCheckPath  -hashAlgo $hashAlgo -HashValuesConcat $HashValueConcat -XmlWriter $XmlWriter                                            
+                       $HashValuesConcat =  CalcHash -WhatToCheckPath $WhatToCheckPath  -hashAlgo $hashAlgo -HashValuesConcat $HashValuesConcat -XmlWriter $XmlWriter  
+                        write-host "** Dir HashConcat:  $HashValuesConcat" 
+                        $hashKey =  hashStr -strToHash $HashValuesConcat -hashAlgo $hashA
+                        $XmlWriter.WriteElementString("HashKey",$hashKey)                                            
+                        $HashValuesConcat = ""
                         $XmlWriter.WriteEndElement()
                         $WhatToCheckPath = Split-Path -Path $WhatToCheckPath -Parent
                 }
     }
+    $HashValuesConcat
 
 }
 
@@ -105,10 +118,11 @@ $XmlWriter.WriteComment("Normal search for files in $RootDirName - no filters")
 $XmlWriter.WriteStartElement("ARootDir")
 $XmlWriter.WriteAttributeString('HashAlgoritm',$hashA.ToString())
 $XmlWriter.WriteAttributeString('Filter',"NoFilter")
-$XmlWriter.WriteElementString('Name',$_.Name )  
-[string] $HashValueConcat = ""
+$XmlWriter.WriteAttributeString('Path',$WhatToCheckList )  
+$XmlWriter.WriteElementString('Name',$RootDirName )  
+[string] $HashValuesConcat = ""
 # Recursive function that calculates hashvalues for files 
-CalcHash  -WhatToCheckPath $WhatToCheckList  -hashAlgo $hashA -HashValuesConcat $HashValueConcat -XmlWriter $XmlWriter     
+$HashValuesConcat = CalcHash  -WhatToCheckPath $WhatToCheckList  -hashAlgo $hashA -HashValuesConcat $HashValuesConcat -XmlWriter $XmlWriter     
 
 $XmlWriter.WriteEndElement()
 $XmlWriter.WriteEndElement()
