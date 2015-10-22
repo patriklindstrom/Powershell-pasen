@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type='text/xsl' href='style.xsl'?>
+<!--List of directories and their unique hashcode-->
+<CheckedRoots VersionName="Testbaseline" NameOfSystem="HelloWorld" DateTime="2015-04-29T13:28:42.4274554+02:00" Source="TestBenchServer">
+	<!--Normal search for files in VersionCheck-Deploy-Test - no filters-->
+	<ARootDir HashAlgoritm="System.Security.Cryptography.MD5CryptoServiceProvider" Filter="NoFilter" Path="C:\myc\github\Powershell-pasen\pstestfiles\VersionCheck-Deploy-Test">
+		<Name>VersionCheck-Deploy-Test</Name>
+		<Dir Path="C:\myc\github\Powershell-pasen\pstestfiles\VersionCheck-Deploy-Test\temp">
+			<Name>temp</Name>
+			<File Path=".\VersionCheck-Deploy-Test\temp\HashCodeTree.xml" CreationTime="2015-04-29T13:28:42.3646554+02:00" LastWriteTime="2015-04-29T13:28:42.3646554+02:00" SizeBytes="0">
+				<Name>HashCodeTree.xml</Name>
+				<HashKey />
+			</File>
+			<HashKey>F9-10-C9-FF-B6-9F-6A-8A-EF-BB-7F-23-5F-17-8F-46</HashKey>
+		</Dir>
+		<File Path=".\VersionCheck-Deploy-Test\Getting Started with ASP.NET 4.5 Web Forms and Visual Studio 2013 - Wingtip Toys in C# for Visual Studio 2013.url" CreationTime="2015-01-09T12:43:38.9540034+01:00" LastWriteTime="2015-01-09T12:43:38.9550035+01:00" SizeBytes="109">
+			<Name>Getting Started with ASP.NET 4.5 Web Forms and Visual Studio 2013 - Wingtip Toys in C# for Visual Studio 2013.url</Name>
+			<HashKey>F2-6F-8F-48-25-72-3F-9A-39-29-F9-43-49-3C-C9-F3</HashKey>
+		</File>
+		<File Path=".\VersionCheck-Deploy-Test\Hello.xml" CreationTime="2015-01-09T12:43:38.9600040+01:00" LastWriteTime="2015-01-09T12:43:38.9600040+01:00" SizeBytes="171">
+			<Name>Hello.xml</Name>
+			<HashKey>2A-53-F3-DF-AA-90-15-3B-D6-DE-90-40-92-DF-B2-AA</HashKey>
+		</File>
+		<File Path=".\VersionCheck-Deploy-Test\HelloWorld.cs" CreationTime="2015-01-09T12:43:38.9650045+01:00" LastWriteTime="2015-01-09T12:43:38.9650045+01:00" SizeBytes="353">
+			<Name>HelloWorld.cs</Name>
+			<HashKey>8F-85-F3-89-DF-99-71-AA-73-B3-09-A8-29-29-AA-75</HashKey>
+		</File>
+	</ARootDir>
+</CheckedRoots>
