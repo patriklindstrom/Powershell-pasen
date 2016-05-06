@@ -1,0 +1,52 @@
+﻿Markdown Example
+===============
+
+This is the raw markdown used to generate the below web content.
+
+Bulleted List
+-------------
+
+* Foo
+* Bar
+
+Numbered List
+-------------
+
+1. Foo
+2. Bar
+
+Formatting
+----------
+
+Can be **bold** or *italic*
+
+Links
+-----
+
+Click [here](http://www.lcube.se) to go somewhere.
+
+Other chars
+--------
+**Motörhead** 
+used dots on there *second* o
+
+Quotes
+-------
+> April is the cruelest month, breeding
+> lilacs out of the dead land, mixing
+> memory and desire, stirring
+> dull roots with spring rain.
+
+#Image
+![The Last  Supper](https://sv.wikipedia.org/wiki/Nattvarden#/media/File:Leonardo_da_Vinci_(1452-1519)_-_The_Last_Supper_(1495-1498).jpg)
+
+#Code
+    $body = @{   
+    text = (Get-Content $FilePath -Raw).ToString() 
+    mode = "markdown"
+    }
+    (Invoke-RestMethod -Method Post -Uri $ApiUri  -Body ($body |Convertto-json)  -ContentType 'application/json; charset=utf-8' )| Out-File $NewFilePath -Encoding utf8
+
+#Humor
+`Exception up = new Exception("Something is really wrong.");`
+`throw up;  //ha ha`
