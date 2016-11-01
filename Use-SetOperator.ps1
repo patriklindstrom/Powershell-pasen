@@ -44,7 +44,9 @@ $Set2.Add(2,"Bertil")
 Add-Type -TypeDefinition $CSharpDictLinqOpLib -Language CSharp 
 Write-host "Union - What is in all the sets" -ForegroundColor Red
 [SetToolbox.SetOperator]::Union($Set1,$Set2) | Format-Table 
-Write-host "Except - What is the difference between the sets" -ForegroundColor Cyan
+Write-host "Except - What is the difference between the sets Set1 - Set2" -ForegroundColor Cyan
 [SetToolbox.SetOperator]::Except($Set1,$Set2) |Format-Table
+Write-host "Except - What is the difference between the sets Set2 - Set1" -ForegroundColor DarkCyan
+[SetToolbox.SetOperator]::Except($Set2,$Set1) |Format-Table
 Write-host "InterSect - What do the sets have in common" -ForegroundColor DarkMagenta
 [SetToolbox.SetOperator]::InterSect($Set1,$Set2) |Format-Table
