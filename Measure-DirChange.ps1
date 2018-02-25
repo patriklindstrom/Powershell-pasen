@@ -64,11 +64,30 @@ param
 )
 
 $regex = [regex] '\.log'
+# These global variables are used when making hash for dll. We decomile them first and remove stuff that changes all the time.
+[regex] $MVID = '^//\s*MVID\:\s*\{[a-zA-Z0-9\\-]+\}$' ;[regex] $baseaddress = '^//\s*Image\s+base\:\s0x[0-9A-Fa-f]*$';[regex] $timedatestamp = '^//\s*Time-date\s+stamp\:\s*0x[0-9A-Fa-f]*$'
+$decompiler = "C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.6.2 Tools\ildasm.exe"
 #$found = $regex.IsMatch($subject);
 
 function hashFile($filePath,[System.Security.Cryptography.HashAlgorithm] $hashAlgo)
-{  
-        $file = [System.IO.File]::Open($filePath,[System.IO.Filemode]::Open, [System.IO.FileAccess]::Read)
+{
+        # Check if it is a dll then assume its CLR reverse it and remove stuff that changes. Then you can hash it.
+        # Todo make try catch if dll is not clr then just hash it.
+        
+        $extn = [IO.Path]::GetExtension($file)
+        if ($extn -in ("dll","exe")){
+                $il = New-TemporaryFile ;$IlfileStatic = New-TemporaryFile 
+                start-process  -filepath $decompiler  -ArgumentList ('/all', '/text', $filePath) -RedirectStandardOutput $il.FullName -windowstyle Hidden -Wait
+                (get-content $il.FullName ) -creplace $MVID,"" -creplace $baseaddress,"" -creplace $timedatestamp,"" | Out-File $IlfileStatic.FullName -Encoding ascii 
+                $file = [System.IO.File]::Open($IlfileStatic.FullName,[System.IO.Filemode]::Open, [System.IO.FileAccess]::Read)
+                remove-item  $il
+                remove-item $IlfileStatic
+         } 
+          else 
+        {
+            $file = [System.IO.File]::Open($filePath,[System.IO.Filemode]::Open, [System.IO.FileAccess]::Read)
+        }
+
         [System.BitConverter]::ToString($hashAlgo.ComputeHash($file))
         $file.Dispose()
 }
